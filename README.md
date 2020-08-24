@@ -6,7 +6,9 @@ https://blenderartists.org/t/wip-bullet-constraints-tools-0-3-7/560060
 
 I have ported it to Blender 2.8 and will hopefully finish the incomplete features and maybe make some improvements.
 
-Bashi's description is as follows.
+Note: you can now find the UI for this tool in the Physics tab of the Properties area, once it is installed.
+
+Bashi's original description is as follows:
 
 ### Usage:
 
