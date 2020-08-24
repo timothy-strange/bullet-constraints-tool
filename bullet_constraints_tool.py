@@ -1,3 +1,19 @@
+
+# This file is part of the Bullet Constraints Tool addon for Blender.
+
+# The Bullet Constraints Tool is free software: you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this file. If not, see <https://www.gnu.org/licenses/>.
+
 import bpy
 import time
 import math
@@ -6,23 +22,25 @@ from mathutils import Vector
 
 bl_info = {
     "name": "Bullet Constraints Tool",
-    "author": "bashi",
+    "author": "bashi; port by Timothy Strange",
     "version": (0, 4, 0, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Toolbar",
-    "description": "Tool to generate constraints. Ported to 2.8 by \
-Timothy Strange.",
+    "location": "Properties",
+    "description":
+    "Tool to generate constraints.",
     "warning": "Work in progress",
-    "wiki_url": "",
-    "tracker_url": "",
+    "wiki_url":
+    "https://github.com/timothy-strange/bullet-constraints-tool/wiki",
+    "tracker_url":
+    "https://github.com/timothy-strange/bullet-constraints-tool/issues",
     "category": "Object"}
 
 
 class Bullet_Tools(bpy.types.Panel):
     bl_label = "Bullet Constraints Tool"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Constraints"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'physics'
 
     def draw(self, context):
         layout = self.layout
@@ -324,7 +342,7 @@ class KDTreeNode():
 
 
 class KDTreeNeighbours():
-    # Internal structure used in nearest-neighbours search.    
+    # Internal structure used in nearest-neighbours search.
 
     def __init__(self, query_point, t):
         self.query_point = query_point
@@ -573,27 +591,15 @@ def constraint_empty(loc, ob1, ob2):
 
 
 def constraint_rigid_viewport(obj, ob1, ob2):
-    if (obj is not None) and (ob1 is not None) and (ob2 is not None):
-        print("Trying to make constraint with: " + obj.name + " " + ob1.name
-              + " " + ob2.name)
-    else:
-        if (obj is None):
-            print("First object is NoneType")
-        if (ob1 is None):
-            print("Second object is NoneType")
-        if (ob2 is None):
-            print("Third object is NoneType")
+
     bpy.context.view_layer.objects.active = obj
 
     # bpy.ops.object.constraint_add(type='RIGID_BODY_JOINT')
     # bpy.ops.rigidbody.connect(con_type='FIXED', pivot_type='CENTER')
     if obj.type == 'MESH' or 'Empty':
-        print("The Object is a mesh or empty")
-        result = bpy.ops.rigidbody.constraint_add(
+        bpy.ops.rigidbody.constraint_add(
             type=str(bpy.context.window_manager.bullet_tool
                      .bullet_tool_Constraint_type))
-        print("Result of the constraint add operator: ")
-        print(result)
         obj.rigid_body_constraint.object1 = ob1
         obj.rigid_body_constraint.object2 = ob2
         obj.rigid_body_constraint.use_breaking = (bpy.context.window_manager
@@ -620,7 +626,6 @@ def add_constraints(list):
         list2.remove(obj)
         # print(obj)
         nearestObj, dist = nearestFunction(obj.location, list2)
-        print("Nearest object to this object: " + str(dist))
         if nearestObj is not 0:
 
             # constraint_rigid_viewport(obj, obj, nearestObj)
@@ -632,10 +637,7 @@ def add_constraints(list):
             # Limit Distance
             if dist < (bpy.context.window_manager.bullet_tool
                        .bullet_tool_search_radius):
-                print("The object is within the search radius.")
                 constraint_rigid_viewport(obj, obj, nearestObj)
-
-                print(len(list))
 
         list2 = []
 
@@ -643,13 +645,10 @@ def add_constraints(list):
 def make_constraints():
     list = bpy.context.selected_objects
     for obj in bpy.context.selected_objects:
-        print('Object: ' + obj.name)
         if obj.type == 'MESH':
-            print('This object is a mesh.')
             bpy.context.view_layer.objects.active = obj
             if len(obj.data.polygons) is not 0:
                 if obj.rigid_body:
-                    print('This object has a rigid body, adding constraints.')
                     add_constraints(list)
                 else:
                     bpy.ops.rigidbody.object_add(type='ACTIVE')
@@ -811,7 +810,6 @@ class OBJECT_OT_FromToConstraint(bpy.types.Operator):
 
 
 def update(objs):
-    print('Update called')
     wm = bpy.context.window_manager
 
     def up_rigid_body():
@@ -1134,39 +1132,45 @@ class OBJECT_OT_Bullet_Ground_connect(bpy.types.Operator):
 class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
     bl_idname = "bullet.remove_constraints"
     bl_label = "Remove Constraints"
-
     bl_description = "Remove Constraints on Selected"
 
     def execute(self, context):
 
         objs = context.selected_objects
-        # obj = context.object
-        bpy.ops.object.select_all(action='DESELECT')
-        for ob in objs:
-            if ob.type == 'MESH':
-                if ob.rigid_body_constraint:
-                    context.view_layer.objects.active = ob
-                    bpy.ops.rigidbody.constraint_remove()
+        # bpy.ops.object.select_all(action='DESELECT')
+        for obj in objs:
+            if obj.type == 'MESH':
+                if obj.rigid_body_constraint:
+                    context.view_layer.objects.active = obj
+                    if bpy.ops.rigidbody.constraint_remove.poll():
+                        bpy.ops.rigidbody.constraint_remove()
+                    else:
+                        # Sometimes the constraint_remove poll() fails
+                        # with a complaint that the context is wrong.
+                        # This may be because the button to run this
+                        # function is in the properties window so
+                        # the context will be PROPERTIES instead of
+                        # VIEW_3D. Nevertheless the problem seems to
+                        # only arise when objects without constraints
+                        # are in the selection group when this function
+                        # is called. We can get around the problem by
+                        # setting context to VIEW_3D then setting it
+                        # back to PROPERTIES immediately.
+                        bpy.context.area.type = 'VIEW_3D'
+                        if bpy.ops.rigidbody.constraint_remove.poll():
+                            bpy.ops.rigidbody.constraint_remove()
+                        bpy.context.area.type = 'PROPERTIES'
 
-            if ob.type == 'EMPTY':
+            if obj.type == 'EMPTY':
                 print('is Empty')
-                if ob.rigid_body_constraint:
-                    context.view_layer.objects.active = ob
-                    ob.select_set(state=True)
-                    print(ob)
-                    print('delete')
-
-                # else:
-                # break
-        bpy.ops.object.delete(use_global=False)
-
-        # restore(obj, objs)
+                if obj.rigid_body_constraint:
+                    context.view_layer.objects.active = obj
+                    bpy.ops.object.delete(use_global=False)
 
         return {'FINISHED'}
 
 
 # Properties Test
-
 class BulletToolProps(bpy.types.PropertyGroup):
 
     bool = bpy.props.BoolProperty
