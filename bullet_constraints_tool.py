@@ -559,7 +559,7 @@ def nearestFunction(point, objs):
 
 
 # Add Constraints for Bullet Viewport Branch
-def constraint_empty(loc, ob1, ob2):
+def constraint_empty(loc, ob1, ob2, empties_collection):
     if ob1.type and ob2.type == 'MESH':
         bpy.context.view_layer.objects.active = ob1
         if len(ob1.data.polygons) is not 0:
@@ -569,14 +569,12 @@ def constraint_empty(loc, ob1, ob2):
         if len(ob2.data.polygons) is not 0:
             bpy.ops.rigidbody.object_add(type='ACTIVE')
 
-    empty = bpy.data.objects.new("constraint_" + ob1.name + ob2.name, None)
-
-    bpy.context.collection.objects.link(empty)
+    empty_name = "BCT constraint " + ob1.name + " to " + ob2.name
+    empty = bpy.data.objects.new(empty_name, None)
     empty.location = loc
+    bpy.data.collections[empties_collection.name].objects.link(empty)
     bpy.context.view_layer.objects.active = empty
-    # bpy.ops.object.empty_add(location=loc)
-    # empty = bpy.context.object
-    # empty.name = "constraint_"+ob1.name +ob2.name
+
     empty.empty_display_size = 0.2
     bpy.ops.rigidbody.constraint_add(
         type=str(bpy.context.window_manager.bullet_tool
@@ -586,6 +584,23 @@ def constraint_empty(loc, ob1, ob2):
     empty.rigid_body_constraint.use_breaking = (bpy.context.window_manager
                                                 .bullet_tool
                                                 .bullet_tool_breakable)
+
+    # Keep a record of which empty is connected to which objects, to allow the
+    # user to select objects and delete the conected empties. Use a dictionary
+    # so each object can store the names of multiple empties.
+    if "empties" not in ob1:
+        ob1["empties"] = {"0": empty_name}
+    else:
+        empties_dic = ob1["empties"]
+        index = len(empties_dic)
+        empties_dic[str(index)] = empty_name
+
+    if "empties" not in ob2:
+        ob2["empties"] = {"0": empty_name}
+    else:
+        empties_dic = ob2["empties"]
+        index = len(empties_dic)
+        empties_dic[str(index)] = empty_name
 
     update(bpy.context.selected_objects)  # Check This
 
@@ -731,58 +746,52 @@ class OBJECT_OT_Bullet_X_Connect(bpy.types.Operator):
     bl_idname = "bullet.x_connect"
     bl_label = "X Constraints"
 
-    bl_description = "KDTree. Constraints between Objects. Uses Neighbour \
-                      Limit, Search Radius."
+    bl_description = "KDTree. Constraints between Objects. Uses Neighbour " \
+        "Limit, Search Radius."
 
     def execute(self, context):
 
-        time_start = time.time()
-
-        objs = context.selected_objects
+        sel_obs = context.selected_objects
         obj = context.object
+        bpy.ops.object.select_all(action='DESELECT')
 
-        obs = []
-        for ob in objs:
+        mesh_obs = []
+        for ob in sel_obs:
             if ob.type == 'MESH':
-                obs.append(ob)
-        tree, objects = KDTree_make(obs)
-
-        avoid_double = True  # <--
+                mesh_obs.append(ob)
+        tree, objects = KDTree_make(mesh_obs)
 
         neighbours = context.window_manager.bullet_tool.get(
             "bullet_tool_neighbours", int(3))
         dist = context.window_manager.bullet_tool.get(
             "bullet_tool_search_radius", "0.5")
 
-        for ob in obs:  # Try Unify Code
-            if ob.type == 'MESH':
-                nearestObjects, dist_list = KDTree_near(
-                    ob.location, objects, tree, neighbours, dist)
-                print(nearestObjects)
-                for obT in nearestObjects:
-                    if obT == ob:
-                        print('same')
-                    else:
-                        print(obT)
-                        loc = 1 / 2 * (ob.location + obT.location)
-                        # Name check if Constraint already exists:
-                        if avoid_double is True:
-                            if ("constraint_" + ob.name + obT.name
-                                    in context.scene.objects):
-                                print("Constraint already exists")
-                            elif ("constraint_" + obT.name + ob.name
-                                  in context.scene.objects):
-                                print("Constraint already exists")
-                            else:
-                                constraint_empty(loc, ob, obT)
-                        else:
-                            constraint_empty(loc, ob, obT)
-                            # bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP',
-                            #                         iterations=1)
-        restore(obj, obs)
-        update(objs)
+        # Make a new collection for all the empties we're going to create
+        collection = bpy.data.collections.new("BCT empties")
+        context.scene.collection.children.link(collection)
 
-        print(time.time() - time_start)
+        for ob in mesh_obs:
+            nearestObjects, dist_list = KDTree_near(
+                ob.location, objects, tree, neighbours, dist)
+            for obT in nearestObjects:
+                if obT != ob:
+                    loc = 1 / 2 * (ob.location + obT.location)
+                    # Check if constraint already exists
+                    name1 = "BCT constraint " + ob.name + " to "\
+                        + obT.name
+                    name2 = "BCT constraint " + obT.name + " to "\
+                        + ob.name
+                    if name1 not in context.scene.objects:
+                        if name2 not in context.scene.objects:
+                            constraint_empty(loc, ob, obT, collection)
+
+        restore(obj, sel_obs)
+        update(sel_obs)
+
+        # Remove the collection if nothing was put in it
+        if len(collection.all_objects) == 0:
+            bpy.context.scene.collection.children.unlink(collection)
+            bpy.data.collections.remove(collection)
 
         return {'FINISHED'}
 
@@ -800,11 +809,20 @@ class OBJECT_OT_FromToConstraint(bpy.types.Operator):
         objs.remove(ob1)
         # ob2=objs[0]
 
+        # Make a new collection for all the empties we're going to create
+        collection = bpy.data.collections.new("BCT empties")
+        context.scene.collection.children.link(collection)
+
         for ob in objs:
             loc = 1 / 2 * (ob.location + ob1.location)
-            constraint_empty(loc, ob, ob1)
+            constraint_empty(loc, ob, ob1, collection)
 
         update(objs)
+
+        # Remove the collection if nothing was put in it
+        if len(collection.all_objects) == 0:
+            bpy.context.scene.collection.children.unlink(collection)
+            bpy.data.collections.remove(collection)
 
         return {'FINISHED'}
 
@@ -1024,6 +1042,10 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
             "bullet_tool_search_radius", "0.5")
         avoid_double = True
 
+        # Make a new collection for all the empties we're going to create
+        collection = bpy.data.collections.new("BCT empties")
+        context.scene.collection.children.link(collection)
+
         if context.window_manager.bullet_tool.bullet_tool_gpencil_mode is True:
 
             tree, objects = KDTree_make(gp_objs)
@@ -1041,16 +1063,18 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
                             loc = 1 / 2 * (ob.location + obT.location)
                             # Name check if Constraint already exists:
                             if avoid_double is True:
-                                if ("constraint_" + ob.name + obT.name in
-                                        context.scene.objects):
+                                name1 = "BCT constraint " + ob.name + " to "\
+                                    + obT.name
+                                name2 = "BCT constraint " + obT.name + " to "\
+                                    + ob.name
+                                if (name1 in context.scene.objects):
                                     print("Constraint already exists")
-                                elif ("constraint_" + obT.name + ob.name in
-                                        context.scene.objects):
+                                elif (name2 in context.scene.objects):
                                     print("Constraint already exists")
                                 else:
-                                    constraint_empty(loc, ob, obT)
+                                    constraint_empty(loc, ob, obT, collection)
                             else:
-                                constraint_empty(loc, ob, obT)
+                                constraint_empty(loc, ob, obT, collection)
                                 # bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP',
                                 #                         iterations=1)
 
@@ -1058,6 +1082,11 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
         update(gp_objs)
 
         restore(ob1, objs)
+
+        # Remove the collection if nothing was put in it
+        if len(collection.all_objects) == 0:
+            bpy.context.scene.collection.children.unlink(collection)
+            bpy.data.collections.remove(collection)
 
         return {'FINISHED'}
 
@@ -1090,6 +1119,10 @@ class OBJECT_OT_Bullet_Ground_connect(bpy.types.Operator):
             bpy.ops.rigidbody.object_add(type='PASSIVE')
             ground.rigid_body.mass = 1000
 
+        # Make a new collection for all the empties we're going to create
+        collection = bpy.data.collections.new("BCT empties")
+        context.scene.collection.children.link(collection)
+
         print('Ground Connect Start')
 
         n = context.window_manager.bullet_tool.bullet_tool_neighbours
@@ -1111,20 +1144,28 @@ class OBJECT_OT_Bullet_Ground_connect(bpy.types.Operator):
                     loc = 1 / 2 * ((ground.matrix_world * v.co) + ob.location)
                     # Name check if Constraint already exists:
                     if avoid_double is True:
-                        if ("constraint_" + ob.name + ground.name in
-                                context.scene.objects):
+                        name1 = "BCT constraint " + ob.name + " to "\
+                            + ground.name
+                        name2 = "BCT constraint " + ground.name + " to "\
+                            + ob.name
+                        if (name1 in context.scene.objects):
                             print("Constraint already exists")
-                        elif ("constraint_" + ground.name + ob.name in
-                                context.scene.objects):
+                        elif (name2 in context.scene.objects):
                             print("Constraint already exists")
                         else:
                             constraint_empty(
-                                ground.matrix_world * v.co, ob, ground)
+                                ground.matrix_world * v.co, ob, ground,
+                                collection)
                     else:
-                        constraint_empty(loc, ob, ground)
+                        constraint_empty(loc, ob, ground, collection)
 
         update(objs)
         restore(ground, objs)
+
+        # Remove the collection if nothing was put in it
+        if len(collection.all_objects) == 0:
+            bpy.context.scene.collection.children.unlink(collection)
+            bpy.data.collections.remove(collection)
 
         return {'FINISHED'}
 
@@ -1136,36 +1177,39 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
 
     def execute(self, context):
 
-        objs = context.selected_objects
-        # bpy.ops.object.select_all(action='DESELECT')
-        for obj in objs:
-            if obj.type == 'MESH':
-                if obj.rigid_body_constraint:
-                    context.view_layer.objects.active = obj
-                    if bpy.ops.rigidbody.constraint_remove.poll():
-                        bpy.ops.rigidbody.constraint_remove()
-                    else:
-                        # Sometimes the constraint_remove poll() fails
-                        # with a complaint that the context is wrong.
-                        # This may be because the button to run this
-                        # function is in the properties window so
-                        # the context will be PROPERTIES instead of
-                        # VIEW_3D. Nevertheless the problem seems to
-                        # only arise when objects without constraints
-                        # are in the selection group when this function
-                        # is called. We can get around the problem by
-                        # setting context to VIEW_3D then setting it
-                        # back to PROPERTIES immediately.
-                        bpy.context.area.type = 'VIEW_3D'
-                        if bpy.ops.rigidbody.constraint_remove.poll():
-                            bpy.ops.rigidbody.constraint_remove()
-                        bpy.context.area.type = 'PROPERTIES'
+        bdo = bpy.data.objects
+        scene = context.scene
 
-            if obj.type == 'EMPTY':
-                print('is Empty')
-                if obj.rigid_body_constraint:
-                    context.view_layer.objects.active = obj
-                    bpy.ops.object.delete(use_global=False)
+        sel_obs = context.selected_objects
+        for ob in sel_obs:
+            if ob is not None:
+                if ob.name.startswith("BCT constraint"):
+                    bdo.remove(bdo[ob.name], do_unlink=True)
+                else:
+                    # Get the list of all empties connected to this object,
+                    # which we have previously stored
+                    if "empties" in ob:
+                        for key in ob["empties"]:
+                            empty = scene.objects.get(ob["empties"][key])
+
+                            if empty is not None:
+                                # Find the collection the empty belongs to so
+                                # it can be deleted after last empty is
+                                # removed.
+                                c = None
+                                for c in empty.users_collection:
+                                    if c.name.startswith("BCT empties"):
+                                        break
+
+                                # Remove the empty, but first remove its name
+                                # from the object dictionary where it was
+                                # stored.
+                                del ob["empties"][key]
+                                bdo.remove(bdo[empty.name], do_unlink=True)
+
+                                if c is not None:
+                                    if len(c.objects) == 0:
+                                        bpy.data.collections.remove(c)
 
         return {'FINISHED'}
 
