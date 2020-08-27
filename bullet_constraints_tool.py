@@ -15,7 +15,6 @@
 # along with this file. If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-import time
 import math
 from mathutils import Vector
 # from bpy.props import *
@@ -23,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; port by Timothy Strange",
-    "version": (0, 4, 0, 0),
+    "version": (0, 4, 0, 2),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description":
