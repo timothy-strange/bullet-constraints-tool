@@ -21,12 +21,11 @@ from mathutils import Vector
 
 bl_info = {
     "name": "Bullet Constraints Tool",
-    "author": "bashi; port by Timothy Strange",
-    "version": (0, 4, 0, 2),
+    "author": "bashi; Timothy Strange",
+    "version": (0, 4, 0, 3),
     "blender": (2, 80, 0),
     "location": "Properties",
-    "description":
-    "Tool to generate constraints.",
+    "description": "Tool to generate constraints.",
     "warning": "Work in progress",
     "wiki_url":
     "https://github.com/timothy-strange/bullet-constraints-tool/wiki",
@@ -726,8 +725,8 @@ class OBJECT_OT_MakeConstraints(bpy.types.Operator):
     bl_idname = "bullet.make_constraints"
     bl_label = "Single Constraints"
 
-    bl_description = "Add Constraints to Selected. Connect Nearest together. \
-1 Constraint per Object"
+    bl_description = "Add Constraints to Selected. Connect Nearest together. "\
+                     "1 Constraint per Object"
 
     def execute(self, context):
         ob = context.object
@@ -996,8 +995,8 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
     bl_idname = "bullet.gpencil"
     bl_label = "GPencil"
 
-    bl_description = "Update/Activate by Grease Pencil Strokes(active Object) \
-        within Search Radius"
+    bl_description = "Update/Activate by Grease Pencil Strokes (active " \
+        "Object) within Search Radius"
 
     def execute(self, context):
 
@@ -1183,32 +1182,61 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
         for ob in sel_obs:
             if ob is not None:
                 if ob.name.startswith("BCT constraint"):
+                    # The object is one of the empties created by BCT
+                    # to join two objects together. Find the collection it
+                    # belongs to so the collection can be removed after
+                    # last empty is removed from it.
+                    c = None
+                    for c in ob.users_collection:
+                        if c.name.startswith("BCT empties"):
+                            break
+
                     bdo.remove(bdo[ob.name], do_unlink=True)
+
+                    if c is not None:
+                        if len(c.objects) == 0:
+                            bpy.data.collections.remove(c)
                 else:
-                    # Get the list of all empties connected to this object,
-                    # which we have previously stored
-                    if "empties" in ob:
-                        for key in ob["empties"]:
-                            empty = scene.objects.get(ob["empties"][key])
+                    # We have either got an object with its own rigidbody
+                    # constraint, or an object which is constrained by an
+                    # empty with rigidbody constraints. Check if the object
+                    # has its own constraint, and if not find the empty which
+                    # is constraining it.
+                    if ob.rigid_body_constraint:
+                        context.view_layer.objects.active = ob
+                        if bpy.ops.rigidbody.constraint_remove.poll():
+                            bpy.ops.rigidbody.constraint_remove()
+                        else:
+                            # We must change the context to avoid an
+                            # exception. Change it back straight after.
+                            bpy.context.area.type = 'VIEW_3D'
+                            bpy.ops.rigidbody.constraint_remove()
+                            bpy.context.area.type = 'PROPERTIES'
+                    else:
+                        # Get the list of all empties connected to this object,
+                        # which we have previously stored
+                        if "empties" in ob:
+                            for key in ob["empties"]:
+                                empty = scene.objects.get(ob["empties"][key])
 
-                            if empty is not None:
-                                # Find the collection the empty belongs to so
-                                # it can be deleted after last empty is
-                                # removed.
-                                c = None
-                                for c in empty.users_collection:
-                                    if c.name.startswith("BCT empties"):
-                                        break
+                                if empty is not None:
+                                    # Find the collection the empty belongs to
+                                    # so it can be deleted after last empty is
+                                    # removed.
+                                    c = None
+                                    for c in empty.users_collection:
+                                        if c.name.startswith("BCT empties"):
+                                            break
 
-                                # Remove the empty, but first remove its name
-                                # from the object dictionary where it was
-                                # stored.
-                                del ob["empties"][key]
-                                bdo.remove(bdo[empty.name], do_unlink=True)
+                                    # Remove the empty, but first remove its
+                                    # name from the object dictionary where it
+                                    # was stored.
+                                    del ob["empties"][key]
+                                    bdo.remove(bdo[empty.name], do_unlink=True)
 
-                                if c is not None:
-                                    if len(c.objects) == 0:
-                                        bpy.data.collections.remove(c)
+                                    if c is not None:
+                                        if len(c.objects) == 0:
+                                            bpy.data.collections.remove(c)
 
         return {'FINISHED'}
 
@@ -1262,8 +1290,8 @@ class BulletToolProps(bpy.types.PropertyGroup):
         default=10,
         min=0.0,
         max=10000,
-        description="Break Threshold. Strength of Object. Break Threshold \
-            = Mass * Threshold")
+        description="Break Threshold. Strength of Object. Break Threshold"
+                    "= Mass * Threshold")
     bullet_tool_absolute_mass: bool(
         name="Absolute",
         default=False,
@@ -1290,8 +1318,8 @@ class BulletToolProps(bpy.types.PropertyGroup):
     bullet_tool_gpencil_mode: bool(
         name="GPencil Mode",
         default=False,
-        description='Disabled =  Edit constraints, Enabled = Edit and \
-            Generate Constraints')
+        description="Disabled =  Edit constraints, Enabled = Edit and "
+                    "Generate Constraints")
     bullet_tool_gpencil_dis: float(
         name="GPencil Distance",
         default=1.0,
