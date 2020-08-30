@@ -22,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; Timothy Strange",
-    "version": (0, 4, 0, 4),
+    "version": (0, 4, 0, 5),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description": "Tool to generate constraints.",
