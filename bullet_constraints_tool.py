@@ -22,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; Timothy Strange",
-    "version": (0, 4, 0, 3),
+    "version": (0, 4, 0, 4),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description": "Tool to generate constraints.",
@@ -60,7 +60,7 @@ class Bullet_Tools(bpy.types.Panel):
         row.operator("bullet.update", icon="FILE_REFRESH")
 
         row = layout.row()
-        row.prop(scene, "bullet_tool_gpencil_mode")
+#        row.prop(scene, "bullet_tool_gpencil_mode")
         row.prop(scene, "bullet_tool_gpencil_dis")
         row.operator("bullet.gpencil", icon='GREASEPENCIL')
 
@@ -124,7 +124,7 @@ class Bullet_Tools(bpy.types.Panel):
             col.active = False
             if ac is True:
                 col.active = True
-            col.label("Limits:")
+            col.label(text="Limits:")
 
             row = col.row()
             sub = row.row()
@@ -142,7 +142,7 @@ class Bullet_Tools(bpy.types.Panel):
             col.active = False
             if ac is True:
                 col.active = True
-            col.label("Limits:")
+            col.label(text="Limits:")
 
             row = col.row()
             sub = row.row()
@@ -161,7 +161,7 @@ class Bullet_Tools(bpy.types.Panel):
             col.active = False
             if ac is True:
                 col.active = True
-            col.label("Limits:")
+            col.label(text="Limits:")
 
             row = col.row()
             sub = row.row()
@@ -194,7 +194,7 @@ class Bullet_Tools(bpy.types.Panel):
             col.active = False
             if ac is True:
                 col.active = True
-            col.label("Limits:")
+            col.label(text="Limits:")
 
             row = col.row()
 
@@ -268,7 +268,7 @@ class Bullet_Tools(bpy.types.Panel):
                 col.active = False
                 if ac is True:
                     col.active = True
-                col.label("Springs:")
+                col.label(text="Springs:")
 
                 row = col.row()
                 sub = row.row()
@@ -558,14 +558,14 @@ def nearestFunction(point, objs):
 
 # Add Constraints for Bullet Viewport Branch
 def constraint_empty(loc, ob1, ob2, empties_collection):
-    if ob1.type and ob2.type == 'MESH':
-        bpy.context.view_layer.objects.active = ob1
-        if len(ob1.data.polygons) is not 0:
-            bpy.ops.rigidbody.object_add(type='ACTIVE')
+    # if ob1.type and ob2.type == 'MESH':
+    #     bpy.context.view_layer.objects.active = ob1
+    #     if len(ob1.data.polygons) is not 0:
+    #         bpy.ops.rigidbody.object_add(type='ACTIVE')
 
-        bpy.context.view_layer.objects.active = ob2
-        if len(ob2.data.polygons) is not 0:
-            bpy.ops.rigidbody.object_add(type='ACTIVE')
+    #     bpy.context.view_layer.objects.active = ob2
+    #     if len(ob2.data.polygons) is not 0:
+    #         bpy.ops.rigidbody.object_add(type='ACTIVE')
 
     empty_name = "BCT constraint " + ob1.name + " to " + ob2.name
     empty = bpy.data.objects.new(empty_name, None)
@@ -684,7 +684,7 @@ def GP_tree(ob, objs, tree):
     radius = bpy.context.window_manager.bullet_tool.get(
         "bullet_tool_gpencil_dis", "1.0")
 
-    for layer in ob.grease_pencil.layers:
+    for layer in bpy.context.scene.grease_pencil.layers:
         color = layer.color
         for stroke in layer.active_frame.strokes:
             for point in stroke.points:
@@ -694,9 +694,7 @@ def GP_tree(ob, objs, tree):
                 x = 0
                 for nearestObj in nearestObjects:
                     dist = dist_list[x]
-                    if nearestObj in order:
-                        print('Skip! Already in List')
-                    else:
+                    if nearestObj not in order:
                         attributes.append(dist)
                         attributes.append(color)
                         order[nearestObj] = attributes
@@ -705,20 +703,31 @@ def GP_tree(ob, objs, tree):
                         # order.append(nearestObj)
                     x += 1
 
-    # print(order)
     return objects, order
 
     # return objs
 
 
-# Restore Selection
-def restore(ob, objs):
+# Restore selection and active object
+def restore_active_and_sel(ob, objs):
     bpy.ops.object.select_all(action='DESELECT')
 
     for obj in objs:
-        obj.select_set(state=True)
-    bpy.context.view_layer.objects.active = ob
+        if not (obj is None):
+            obj.select_set(state=True)
+
+    if not (ob is None):
+        bpy.context.view_layer.objects.active = ob
     # ob.select_set(state=True)
+
+
+# Restore selection without an active object
+def restore_sel(objs):
+    bpy.ops.object.select_all(action='DESELECT')
+
+    for obj in objs:
+        if not (obj is None):
+            obj.select_set(state=True)
 
 
 class OBJECT_OT_MakeConstraints(bpy.types.Operator):
@@ -735,17 +744,17 @@ class OBJECT_OT_MakeConstraints(bpy.types.Operator):
         make_constraints()
         update(bpy.context.selected_objects)
 
-        restore(ob, objs)
+        restore_active_and_sel(ob, objs)
 
         return {'FINISHED'}
 
 
 class OBJECT_OT_Bullet_X_Connect(bpy.types.Operator):
     bl_idname = "bullet.x_connect"
-    bl_label = "X Constraints"
+    bl_label = "Multiple Constraints"
 
-    bl_description = "KDTree. Constraints between Objects. Uses Neighbour " \
-        "Limit, Search Radius."
+    bl_description = "Allow multiple constraints between objects. Uses " \
+        "Neighbour Limit and Search Radius values (set below)."
 
     def execute(self, context):
 
@@ -783,7 +792,7 @@ class OBJECT_OT_Bullet_X_Connect(bpy.types.Operator):
                         if name2 not in context.scene.objects:
                             constraint_empty(loc, ob, obT, collection)
 
-        restore(obj, sel_obs)
+        restore_active_and_sel(obj, sel_obs)
         update(sel_obs)
 
         # Remove the collection if nothing was put in it
@@ -796,9 +805,9 @@ class OBJECT_OT_Bullet_X_Connect(bpy.types.Operator):
 
 class OBJECT_OT_FromToConstraint(bpy.types.Operator):
     bl_idname = "bullet.from_to_constraint"
-    bl_label = "Constraint Selection2Active"
+    bl_label = "Link Sel. to Active"
 
-    bl_description = "Constraint Selected to Active"
+    bl_description = "Link all the selected objects to the active object"
 
     def execute(self, context):
         # Get SelectionOrder
@@ -829,7 +838,7 @@ def update(objs):
     wm = bpy.context.window_manager
 
     def up_rigid_body():
-        obj.rigid_body.use_deactivation = False
+        # obj.rigid_body.use_deactivation = False
         orb = obj.rigid_body
 
         if wm.bullet_tool.bullet_tool_show_obj is True:
@@ -848,7 +857,6 @@ def update(objs):
                 orbc.breaking_threshold = (wm.bullet_tool
                                            .bullet_tool_break_threshold)
             elif wm.bullet_tool.bullet_tool_multiplier is True:
-                print('Multiply')
                 orbc.breaking_threshold *= (wm.bullet_tool
                                             .bullet_tool_break_threshold)
             elif orbc.object1 and orbc.object2:
@@ -1000,37 +1008,24 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
 
     def execute(self, context):
 
-        ob1 = bpy.context.object
+        ob1 = bpy.context.active_object
         objs = context.selected_objects
+
+        # bpy.ops.object.select_all(action='DESELECT')
 
         tree, objects = KDTree_make(objs)
 
         gp_objs, order = GP_tree(ob1, objects, tree)
 
-        # Get SelectionOrder
-        # objs = bpy.context.selected_objects
-        # ob1=bpy.context.active_object
-        # if ob1 in objs:
-        #    objs.remove(ob1)
-        # ob2=objs[0]
-
-        # obs = list(gp_objs.keys())
-
-        # for i in range(0, len(gp_objs)):
-
-        #     if i+2 > len(gp_objs):
-        #         break
-        #     constraint_rigid_viewport(gp_objs[i], gp_objs[i], gp_objs[i+1])
-
         # Enable Physics for Objects
-        for ob in gp_objs:
-            bpy.context.view_layer.objects.active = ob
-            if ob.type == 'MESH':
-                if ob.rigid_body:
-                    ob.rigid_body.type = 'ACTIVE'
-                else:
-                    if len(ob.data.polygons) is not 0:
-                        bpy.ops.rigidbody.object_add(type='ACTIVE')
+        # for ob in gp_objs:
+        #     bpy.context.view_layer.objects.active = ob
+        #     if ob.type == 'MESH':
+        #         if ob.rigid_body:
+        #             ob.rigid_body.type = 'ACTIVE'
+        #         else:
+        #             if len(ob.data.polygons) is not 0:
+        #                 bpy.ops.rigidbody.object_add(type='ACTIVE')
 
         neighbours = int(context.window_manager.bullet_tool.get(
             "bullet_tool_neighbours", "3"))
@@ -1038,48 +1033,37 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
         # Neighbours *= 10
         dist = context.window_manager.bullet_tool.get(
             "bullet_tool_search_radius", "0.5")
-        avoid_double = True
 
         # Make a new collection for all the empties we're going to create
         collection = bpy.data.collections.new("BCT empties")
         context.scene.collection.children.link(collection)
 
-        if context.window_manager.bullet_tool.bullet_tool_gpencil_mode is True:
+        # if (context.window_manager.bullet_tool.bullet_tool_gpencil_mode
+        #         is True):
 
-            tree, objects = KDTree_make(gp_objs)
+        tree, objects = KDTree_make(gp_objs)
 
-            for ob in gp_objs:  # Try Unify Code
-                if ob.type == 'MESH':
-                    nearestObjects, dist_list = KDTree_near(
-                        ob.location, objects, tree, neighbours, dist)
-                    print(nearestObjects)
-                    for obT in nearestObjects:
-                        if obT == ob:
-                            print('same')
-                        else:
-                            print(obT)
-                            loc = 1 / 2 * (ob.location + obT.location)
-                            # Name check if Constraint already exists:
-                            if avoid_double is True:
-                                name1 = "BCT constraint " + ob.name + " to "\
-                                    + obT.name
-                                name2 = "BCT constraint " + obT.name + " to "\
-                                    + ob.name
-                                if (name1 in context.scene.objects):
-                                    print("Constraint already exists")
-                                elif (name2 in context.scene.objects):
-                                    print("Constraint already exists")
-                                else:
-                                    constraint_empty(loc, ob, obT, collection)
-                            else:
-                                constraint_empty(loc, ob, obT, collection)
-                                # bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP',
-                                #                         iterations=1)
+        for ob in gp_objs:  # Try Unify Code
+            if ob.type == 'MESH':
+                # ob.select_set(True)
+                nearestObjects, dist_list = KDTree_near(
+                    ob.location, objects, tree, neighbours, dist)
+                for obT in nearestObjects:
+                    if obT != ob:
+                        loc = 1 / 2 * (ob.location + obT.location)
+                        # Name check if Constraint already exists:
+                        name1 = "BCT constraint " + ob.name + " to "\
+                            + obT.name
+                        name2 = "BCT constraint " + obT.name + " to "\
+                            + ob.name
+                        if not (name1 in context.scene.objects or
+                                name2 in context.scene.objects):
+                            constraint_empty(loc, ob, obT, collection)
 
-        print(gp_objs)
+        # print(gp_objs)
         update(gp_objs)
 
-        restore(ob1, objs)
+        # restore(ob1, objs)
 
         # Remove the collection if nothing was put in it
         if len(collection.all_objects) == 0:
@@ -1158,7 +1142,7 @@ class OBJECT_OT_Bullet_Ground_connect(bpy.types.Operator):
                         constraint_empty(loc, ob, ground, collection)
 
         update(objs)
-        restore(ground, objs)
+        restore_active_and_sel(ground, objs)
 
         # Remove the collection if nothing was put in it
         if len(collection.all_objects) == 0:
@@ -1177,9 +1161,19 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
 
         bdo = bpy.data.objects
         scene = context.scene
+        act_ob = context.active_object
+        if act_ob is not None:
+            if act_ob.type == 'EMPTY':
+                act_ob = None
 
         sel_obs = context.selected_objects
-        for ob in sel_obs:
+        bpy.ops.object.select_all(action='DESELECT')
+
+        # We can't use a for loop as we will be removing items from
+        # the list as we go through it. Use a while loop.
+        index = 0
+        while index < len(sel_obs):
+            ob = sel_obs[index]
             if ob is not None:
                 if ob.name.startswith("BCT constraint"):
                     # The object is one of the empties created by BCT
@@ -1191,19 +1185,27 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
                         if c.name.startswith("BCT empties"):
                             break
 
+                    del(sel_obs[index])
                     bdo.remove(bdo[ob.name], do_unlink=True)
 
                     if c is not None:
                         if len(c.objects) == 0:
                             bpy.data.collections.remove(c)
                 else:
+
+                    # As we won't be removing an object, increment the
+                    # index so that next time through the loop we won't
+                    # look at the same object.
+                    index += 1
+
                     # We have either got an object with its own rigidbody
                     # constraint, or an object which is constrained by an
                     # empty with rigidbody constraints. Check if the object
                     # has its own constraint, and if not find the empty which
                     # is constraining it.
                     if ob.rigid_body_constraint:
-                        context.view_layer.objects.active = ob
+                        # context.view_layer.objects.active = ob
+                        ob.select_set(True)
                         if bpy.ops.rigidbody.constraint_remove.poll():
                             bpy.ops.rigidbody.constraint_remove()
                         else:
@@ -1237,6 +1239,25 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
                                     if c is not None:
                                         if len(c.objects) == 0:
                                             bpy.data.collections.remove(c)
+        if act_ob is None:
+            # If one of the empties we deleted was the active object,
+            # Blender will make the physics panel disappear (it disappears
+            # when there is no active object), which will make the BCT UI
+            # disappear too. To stop it disappearing, set one of the selected
+            # objects as active, or if all selected objects were removed,
+            # set the first object in the scene active, if there is one.
+            if len(sel_obs) > 0:
+                context.view_layer.objects.active = sel_obs[0]
+            else:
+                vl_obs = context.view_layer.objects
+                if len(vl_obs) > 0:
+                    vl_obs.active = vl_obs[0]
+
+        # Restore the selection. We don't have to worry about getting
+        # exceptions when trying to restore the selection status of objects
+        # which we have removed from the scene, as we removed them from our
+        # list before we removed them from the scene.
+        restore_sel(sel_obs)
 
         return {'FINISHED'}
 
@@ -1315,11 +1336,11 @@ class BulletToolProps(bpy.types.PropertyGroup):
         description="Number of Neighbour to Check. More = Slower")
 
     # for GPencil
-    bullet_tool_gpencil_mode: bool(
-        name="GPencil Mode",
-        default=False,
-        description="Disabled =  Edit constraints, Enabled = Edit and "
-                    "Generate Constraints")
+    # bullet_tool_gpencil_mode: bool(
+    #     name="GPencil Mode",
+    #     default=False,
+    #     description="Disabled =  Edit constraints, Enabled = Edit and "
+    #                 "Generate Constraints")
     bullet_tool_gpencil_dis: float(
         name="GPencil Distance",
         default=1.0,
