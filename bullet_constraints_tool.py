@@ -1163,7 +1163,11 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
         scene = context.scene
         act_ob = context.active_object
         if act_ob is not None:
-            if act_ob.type == 'EMPTY':
+            # If the active object is one of our empties which we are going
+            # to remove,  set it to none now, otherwise later when we try to
+            # restore the active object, Blender will give an exception as the
+            # object has been removed.
+            if act_ob.name.startswith("BCT constraint"):
                 act_ob = None
 
         sel_obs = context.selected_objects
@@ -1204,8 +1208,8 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
                     # has its own constraint, and if not find the empty which
                     # is constraining it.
                     if ob.rigid_body_constraint:
-                        # context.view_layer.objects.active = ob
-                        ob.select_set(True)
+                        context.view_layer.objects.active = ob
+                        # ob.select_set(True)
                         if bpy.ops.rigidbody.constraint_remove.poll():
                             bpy.ops.rigidbody.constraint_remove()
                         else:
