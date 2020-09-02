@@ -22,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; Timothy Strange",
-    "version": (0, 4, 0, 5),
+    "version": (0, 4, 0, 6),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description": "Tool to generate constraints.",
@@ -663,9 +663,9 @@ def make_constraints():
             if len(obj.data.polygons) is not 0:
                 if obj.rigid_body:
                     add_constraints(list)
-                else:
-                    bpy.ops.rigidbody.object_add(type='ACTIVE')
-                    add_constraints(list)
+                # else:
+                #     bpy.ops.rigidbody.object_add(type='ACTIVE')
+                #     add_constraints(list)
                     # bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP',
                     #                         iterations=1)
 
@@ -1008,6 +1008,9 @@ class OBJECT_OT_Bullet_GPencil(bpy.types.Operator):
 
     def execute(self, context):
 
+        if bpy.context.scene.grease_pencil is None:
+            return {'CANCELLED'}
+
         ob1 = bpy.context.active_object
         objs = context.selected_objects
 
@@ -1170,46 +1173,53 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
             if act_ob.name.startswith("BCT constraint"):
                 act_ob = None
 
-        sel_obs = context.selected_objects
-        bpy.ops.object.select_all(action='DESELECT')
+        sel_ob_names = []
+        for sel_ob in context.selected_objects:
+            sel_ob_names.append(sel_ob.name)
 
         # We can't use a for loop as we will be removing items from
         # the list as we go through it. Use a while loop.
         index = 0
-        while index < len(sel_obs):
-            ob = sel_obs[index]
-            if ob is not None:
-                if ob.name.startswith("BCT constraint"):
-                    # The object is one of the empties created by BCT
-                    # to join two objects together. Find the collection it
-                    # belongs to so the collection can be removed after
-                    # last empty is removed from it.
+        while index < len(sel_ob_names):
+            ob_name = sel_ob_names[index]
+            if ob_name.startswith("BCT constraint"):
+                # The object is one of the empties created by BCT
+                # to join two objects together. Find the collection it
+                # belongs to so the collection can be removed after
+                # last empty is removed from it.
+                ob = bdo.get(ob_name)
+                if ob is not None:
                     c = None
                     for c in ob.users_collection:
                         if c.name.startswith("BCT empties"):
                             break
 
-                    del(sel_obs[index])
-                    bdo.remove(bdo[ob.name], do_unlink=True)
+                    del(sel_ob_names[index])
+                    bdo.remove(bdo[ob_name], do_unlink=True)
 
                     if c is not None:
                         if len(c.objects) == 0:
                             bpy.data.collections.remove(c)
-                else:
+            else:
 
-                    # As we won't be removing an object, increment the
-                    # index so that next time through the loop we won't
-                    # look at the same object.
-                    index += 1
+                # As we are not going to remove the current object,
+                # increment the index so that next time through the loop
+                # we won't look at the same object. (If an object is
+                # removed we don't need to do this as all subsequent
+                # objects move down a position)
+                index += 1
 
-                    # We have either got an object with its own rigidbody
-                    # constraint, or an object which is constrained by an
-                    # empty with rigidbody constraints. Check if the object
-                    # has its own constraint, and if not find the empty which
-                    # is constraining it.
+                # We have either got an object with its own rigidbody
+                # constraint, or an object which is constrained by an
+                # empty with rigidbody constraints. Check if the object
+                # has its own constraint, and if not find the empty which
+                # is constraining it.
+                ob = bdo.get(ob_name)
+                if ob is not None:
                     if ob.rigid_body_constraint:
+
+                        # The object has its own constraint.
                         context.view_layer.objects.active = ob
-                        # ob.select_set(True)
                         if bpy.ops.rigidbody.constraint_remove.poll():
                             bpy.ops.rigidbody.constraint_remove()
                         else:
@@ -1236,13 +1246,41 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
 
                                     # Remove the empty, but first remove its
                                     # name from the object dictionary where it
-                                    # was stored.
-                                    del ob["empties"][key]
+                                    # was stored. Also take a note of its name
+                                    # (see next comment).
+                                    empty_name = empty.name
                                     bdo.remove(bdo[empty.name], do_unlink=True)
+
+                                    # The empty we just deleted might be in our
+                                    # list of selected objects if it happened
+                                    # to be selected when the user pressed the
+                                    # remove button. In other words, we might
+                                    # have had two references to it - one from
+                                    # the dictionary attached to the object,
+                                    # and another from it having been selected.
+                                    # Go through the rest of the list and if
+                                    # the name of the empty is found, remove
+                                    # it from the list so we don't try to
+                                    # remove the already-removed empty when
+                                    # we reach that point in the list.
+                                    j = index
+                                    while j < len(sel_ob_names):
+                                        if sel_ob_names[j] == empty_name:
+                                            del(sel_ob_names[j])
+                                            break
+                                        else:
+                                            j += 1
 
                                     if c is not None:
                                         if len(c.objects) == 0:
                                             bpy.data.collections.remove(c)
+                                
+                                # Whether we found the empty or not, remove
+                                # the reference to it from the obejct. If we
+                                # found it, we deleted it, if we didn't find
+                                # it, the object shouldn't refer to it.
+                                del ob["empties"][key]
+
         if act_ob is None:
             # If one of the empties we deleted was the active object,
             # Blender will make the physics panel disappear (it disappears
@@ -1250,18 +1288,12 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
             # disappear too. To stop it disappearing, set one of the selected
             # objects as active, or if all selected objects were removed,
             # set the first object in the scene active, if there is one.
-            if len(sel_obs) > 0:
+            if len(context.selected_objects) > 0:
                 context.view_layer.objects.active = sel_obs[0]
             else:
                 vl_obs = context.view_layer.objects
                 if len(vl_obs) > 0:
                     vl_obs.active = vl_obs[0]
-
-        # Restore the selection. We don't have to worry about getting
-        # exceptions when trying to restore the selection status of objects
-        # which we have removed from the scene, as we removed them from our
-        # list before we removed them from the scene.
-        restore_sel(sel_obs)
 
         return {'FINISHED'}
 
