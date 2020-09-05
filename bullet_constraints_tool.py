@@ -22,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; Timothy Strange",
-    "version": (0, 4, 0, 7),
+    "version": (0, 4, 0, 8),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description": "Tool to generate constraints.",
@@ -1289,7 +1289,8 @@ class OBJECT_OT_Bullet_remove_constraints(bpy.types.Operator):
             # objects as active, or if all selected objects were removed,
             # set the first object in the scene active, if there is one.
             if len(context.selected_objects) > 0:
-                context.view_layer.objects.active = sel_obs[0]
+                new_active_ob = scene.objects.get(sel_ob_names[0])
+                context.view_layer.objects.active = new_active_ob
             else:
                 vl_obs = context.view_layer.objects
                 if len(vl_obs) > 0:
