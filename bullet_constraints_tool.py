@@ -22,7 +22,7 @@ from mathutils import Vector
 bl_info = {
     "name": "Bullet Constraints Tool",
     "author": "bashi; Timothy Strange",
-    "version": (0, 4, 0, 6),
+    "version": (0, 4, 0, 7),
     "blender": (2, 80, 0),
     "location": "Properties",
     "description": "Tool to generate constraints.",
@@ -840,7 +840,7 @@ def update(objs):
     def up_rigid_body():
         # obj.rigid_body.use_deactivation = False
         orb = obj.rigid_body
-
+        
         if wm.bullet_tool.bullet_tool_show_obj is True:
             orb.use_margin = wm.bullet_tool.bullet_tool_use_margin
             orb.collision_margin = wm.bullet_tool.bullet_tool_collmargin
@@ -848,94 +848,94 @@ def update(objs):
             orb.friction = wm.bullet_tool.bullet_tool_friction
 
     def up_rigid_constraint():
-        orbc = obj.rigid_body_constraint
+        con = obj.rigid_body_constraint
         if wm.bullet_tool.bullet_tool_show_break is True:
-            orbc.use_breaking = wm.bullet_tool.bullet_tool_breakable
+            con.use_breaking = wm.bullet_tool.bullet_tool_breakable
 
             # Mass
             if wm.bullet_tool.bullet_tool_absolute_mass is True:
-                orbc.breaking_threshold = (wm.bullet_tool
+                con.breaking_threshold = (wm.bullet_tool
                                            .bullet_tool_break_threshold)
             elif wm.bullet_tool.bullet_tool_multiplier is True:
-                orbc.breaking_threshold *= (wm.bullet_tool
+                con.breaking_threshold *= (wm.bullet_tool
                                             .bullet_tool_break_threshold)
-            elif orbc.object1 and orbc.object2:
-                if orbc.object1.type == 'MESH':
-                    if orbc.object2.type == 'MESH':
-                        if orbc.object1.rigid_body:
-                            if orbc.object2.rigid_body:
+            elif con.object1 and con.object2:
+                if con.object1.type == 'MESH':
+                    if con.object2.type == 'MESH':
+                        if con.object1.rigid_body:
+                            if con.object2.rigid_body:
 
-                                orbc.breaking_threshold = (
-                                    ((orbc.object1.rigid_body.mass
-                                      + orbc.object2.rigid_body.mass) / 2)
+                                con.breaking_threshold = (
+                                    ((con.object1.rigid_body.mass
+                                      + con.object2.rigid_body.mass) / 2)
                                     * (wm.bullet_tool
                                        .bullet_tool_break_threshold))
                             else:
-                                orbc.breaking_threshold = \
+                                con.breaking_threshold = \
                                     wm.bullet_tool.bullet_tool_break_threshold
 
         if wm.bullet_tool.bullet_tool_show_it is True:
-            orbc.override_solver_iterations = \
+            con.use_override_solver_iterations = \
                 wm.bullet_tool.bullet_tool_over_iteration
-            orbc.num_solver_iterations = wm.bullet_tool.bullet_tool_iteration
+            con.solver_iterations = wm.bullet_tool.bullet_tool_iteration
 
         if wm.bullet_tool.bullet_tool_show_con is True:
-            orbc.type = wm.bullet_tool.bullet_tool_Constraint_type
+            con.type = wm.bullet_tool.bullet_tool_Constraint_type
 
         if wm.bullet_tool.bullet_tool_show_lim is True:
-            orbc.use_limit_ang_x = wm.bullet_tool.bullet_tool_use_limit_ang_x
-            orbc.limit_ang_x_lower = math.radians(
+            con.use_limit_ang_x = wm.bullet_tool.bullet_tool_use_limit_ang_x
+            con.limit_ang_x_lower = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_x_lower)
-            orbc.limit_ang_x_upper = math.radians(
+            con.limit_ang_x_upper = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_x_upper)
 
-            orbc.use_limit_ang_y = wm.bullet_tool.bullet_tool_use_limit_ang_y
-            orbc.limit_ang_y_lower = math.radians(
+            con.use_limit_ang_y = wm.bullet_tool.bullet_tool_use_limit_ang_y
+            con.limit_ang_y_lower = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_y_lower)
-            orbc.limit_ang_y_upper = math.radians(
+            con.limit_ang_y_upper = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_y_upper)
 
-            orbc.use_limit_ang_z = wm.bullet_tool.bullet_tool_use_limit_ang_z
-            orbc.limit_ang_z_lower = math.radians(
+            con.use_limit_ang_z = wm.bullet_tool.bullet_tool_use_limit_ang_z
+            con.limit_ang_z_lower = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_z_lower)
-            orbc.limit_ang_z_upper = math.radians(
+            con.limit_ang_z_upper = math.radians(
                 wm.bullet_tool.bullet_tool_limit_ang_z_upper)
 
-            orbc.use_limit_lin_x = wm.bullet_tool.bullet_tool_use_limit_lin_x
-            orbc.limit_lin_x_lower = \
+            con.use_limit_lin_x = wm.bullet_tool.bullet_tool_use_limit_lin_x
+            con.limit_lin_x_lower = \
                 wm.bullet_tool.bullet_tool_limit_lin_x_lower
-            orbc.limit_lin_x_upper = \
+            con.limit_lin_x_upper = \
                 wm.bullet_tool.bullet_tool_limit_lin_x_upper
 
-            orbc.use_limit_lin_y = \
+            con.use_limit_lin_y = \
                 wm.bullet_tool.bullet_tool_use_limit_lin_y
-            orbc.limit_lin_y_lower = \
+            con.limit_lin_y_lower = \
                 wm.bullet_tool.bullet_tool_limit_lin_y_lower
-            orbc.limit_lin_y_upper = \
+            con.limit_lin_y_upper = \
                 wm.bullet_tool.bullet_tool_limit_lin_y_upper
 
-            orbc.use_limit_lin_z = \
+            con.use_limit_lin_z = \
                 wm.bullet_tool.bullet_tool_use_limit_lin_z
-            orbc.limit_lin_z_lower = \
+            con.limit_lin_z_lower = \
                 wm.bullet_tool.bullet_tool_limit_lin_z_lower
-            orbc.limit_lin_z_upper = \
+            con.limit_lin_z_upper = \
                 wm.bullet_tool.bullet_tool_limit_lin_z_upper
 
-            orbc.use_spring_x = \
+            con.use_spring_x = \
                 wm.bullet_tool.bullet_tool_use_spring_x
-            orbc.spring_stiffness_x = \
+            con.spring_stiffness_x = \
                 wm.bullet_tool.bullet_tool_spring_stiffness_x
-            orbc.spring_damping_x = wm.bullet_tool.bullet_tool_spring_damping_x
+            con.spring_damping_x = wm.bullet_tool.bullet_tool_spring_damping_x
 
-            orbc.use_spring_y = wm.bullet_tool.bullet_tool_use_spring_y
-            orbc.spring_stiffness_y = \
+            con.use_spring_y = wm.bullet_tool.bullet_tool_use_spring_y
+            con.spring_stiffness_y = \
                 wm.bullet_tool.bullet_tool_spring_stiffness_y
-            orbc.spring_damping_y = wm.bullet_tool.bullet_tool_spring_damping_y
+            con.spring_damping_y = wm.bullet_tool.bullet_tool_spring_damping_y
 
-            orbc.use_spring_z = wm.bullet_tool.bullet_tool_use_spring_z
-            orbc.spring_stiffness_z = \
+            con.use_spring_z = wm.bullet_tool.bullet_tool_use_spring_z
+            con.spring_stiffness_z = \
                 wm.bullet_tool.bullet_tool_spring_stiffness_z
-            orbc.spring_damping_z = wm.bullet_tool.bullet_tool_spring_damping_z
+            con.spring_damping_z = wm.bullet_tool.bullet_tool_spring_damping_z
 
     def empty_size(empty):
         size = 0.5
