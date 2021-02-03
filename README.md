@@ -1,3 +1,5 @@
+Video: [Using the grease pencil option](https://github.com/timothy-strange/bullet-constraints-tool/wiki/Grease-Pencil-option)
+
 # bullet-constraints-tool
 
 This is the Bullet Constraints Tool addon for Blender, originally created by the poster bashi on blenderartists.org:
