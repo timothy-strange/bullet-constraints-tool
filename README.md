@@ -1,4 +1,4 @@
-Video: [Using the grease pencil option](https://github.com/timothy-strange/bullet-constraints-tool/wiki/Grease-Pencil-option)
+Video: [Using the grease pencil option](https://www.youtube.com/watch?v=axUO3-l1cuk)
 
 # bullet-constraints-tool
 
