@@ -6,7 +6,7 @@ This is the Bullet Constraints Tool addon for Blender, originally created by the
 
 https://blenderartists.org/t/wip-bullet-constraints-tools-0-3-7/560060
 
-I have ported it to Blender 2.8 and will hopefully finish the incomplete features and maybe make some improvements.
+I have ported it to Blender 2.8 and made minor improvements.
 
 Note: you can now find the UI for this tool in the Physics tab of the Properties area, once it is installed.
 
